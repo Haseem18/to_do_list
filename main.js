@@ -3,17 +3,17 @@ const userTaskContainer = document.querySelector(".user_task_container");
 const taskBar = document.querySelector(".task_bar img");
 const inputElement = document.querySelector("input");
 
-const tasksList = [];
+const tasksList = JSON.parse(localStorage.getItem("task")) || [];
 
 const recognition = new SpeechRecognition();
-recognition.lang = 'en-US'; 
+recognition.lang = 'en-US';
 recognition.continuous = false;
-recognition.interimResults = false; 
+recognition.interimResults = false;
 
 taskBar.addEventListener("click", () => {
     recognition.start();
     inputElement.value = "Listening...";
-})
+});
 
 recognition.onresult = (event) => {
     const transcript = event.results[0][0].transcript;
@@ -25,23 +25,25 @@ recognition.onerror = (event) => {
     output.textContent = "Error: " + event.error;
 };
 
+const saveTasks = () => {
+    localStorage.setItem("task", JSON.stringify(tasksList));
+};
+
 const warnMessage = (msg) => {
     if (document.querySelector(".warn_msg")) return;
 
     const warnElement = document.createElement("p");
     warnElement.classList.add("warn_msg");
     warnElement.textContent = msg;
-    
+
     setTimeout(() => {
         warnElement.remove();
     }, 3000);
 
     toDoForm.insertAdjacentElement("beforebegin", warnElement);
-}
+};
 
-const renderTask = (task) => {
-    tasksList.push(task);
-
+const createTaskElement = (task) => {
     const userTaskElm = document.createElement("li");
     userTaskElm.classList.add("user_task");
 
@@ -55,23 +57,39 @@ const renderTask = (task) => {
     const editBtn = document.createElement("button");
     editBtn.classList.add("edit_btn");
     editBtn.textContent = "Edit";
-    userTaskElm.append(taskElement);
 
     const deleteBtn = document.createElement("button");
     deleteBtn.classList.add("delete_btn");
     deleteBtn.textContent = "Delete";
 
-    btnsElement.append(editBtn, deleteBtn)
+    btnsElement.append(editBtn, deleteBtn);
+    userTaskElm.append(taskElement, btnsElement);
 
-    userTaskElm.appendChild(btnsElement)
     userTaskContainer.appendChild(userTaskElm);
+};
 
+const renderTask = (task) => {
+    tasksList.push(task);
+    saveTasks();
+    createTaskElement(task);
     inputElement.value = "";
-}
+};
+
+const loadTask = () => {
+    userTaskContainer.innerHTML = "";
+    tasksList.forEach((task) => {
+        createTaskElement(task);
+    });
+};
+
+loadTask();
 
 const saveEdittedTask = (element, taskText) => {
     const oldTextIndex = tasksList.indexOf(oldText);
-    tasksList[oldTextIndex]  = taskText.textContent;
+    if (oldTextIndex >= 0) {
+        tasksList[oldTextIndex] = taskText.textContent;
+        saveTasks();
+    }
 
     const editBtn = document.createElement("button");
     editBtn.classList.add("edit_btn");
@@ -80,11 +98,8 @@ const saveEdittedTask = (element, taskText) => {
     taskText.removeAttribute("contenteditable");
     taskText.classList.remove("edit");
 
-    console.log(element.parentElement);
-    console.log(element.parentElement.firstElementChild)
-    
-    element.parentElement.replaceChild(editBtn, element.parentElement.firstElementChild)
-}
+    element.parentElement.replaceChild(editBtn, element.parentElement.firstElementChild);
+};
 
 const getTask = (event) => {
     event.preventDefault();
@@ -99,14 +114,13 @@ const getTask = (event) => {
     }
 
     const isDuplicateTask = tasksList.some((userTask) => userTask.toLowerCase() === task.toLowerCase());
-    
     if (isDuplicateTask) {
-        warnMessage("Do not add duplicate task")
+        warnMessage("Do not add duplicate task");
         return;
     }
-    
+
     renderTask(task.trim());
-}
+};
 
 toDoForm.addEventListener("submit", getTask);
 
@@ -115,11 +129,14 @@ let oldText = "";
 userTaskContainer.addEventListener("click", (event) => {
     const element = event.target;
     const taskText = element.parentElement.parentElement.firstElementChild;
-    
+
     if (element.tagName === "BUTTON") {
         if (element.classList.contains("delete_btn")) {
-            const teaskIndex = tasksList.indexOf(taskText.textContent);
-            tasksList.splice(teaskIndex, 1);
+            const taskIndex = tasksList.indexOf(taskText.textContent);
+            if (taskIndex >= 0) {
+                tasksList.splice(taskIndex, 1);
+                saveTasks(); 
+            }
             element.parentElement.parentElement.remove();
             return;
         }
@@ -134,18 +151,16 @@ userTaskContainer.addEventListener("click", (event) => {
             range.collapse(false);
             selection.removeAllRanges();
             selection.addRange(range);
-            
+
             taskText.focus();
-            
+
             const saveBtn = document.createElement("button");
             saveBtn.classList.add("save_btn");
             saveBtn.textContent = "Save";
 
             oldText = taskText.textContent;
-            console.log(oldText);
-            
-            
-            element.parentElement.replaceChild(saveBtn, element.parentElement.firstElementChild)
+
+            element.parentElement.replaceChild(saveBtn, element.parentElement.firstElementChild);
             return;
         }
 
@@ -155,22 +170,23 @@ userTaskContainer.addEventListener("click", (event) => {
     }
 
     if (element.classList.contains("task")) {
-        element.addEventListener("keydown", (event) => {    
+        element.addEventListener("keydown", (event) => {
             if (event.key === "Enter") {
-                const oldTextIndex = tasksList.indexOf(oldText);                
+                const oldTextIndex = tasksList.indexOf(oldText);
                 if (oldTextIndex >= 0) {
-                    tasksList[oldTextIndex]  = element.textContent;
+                    tasksList[oldTextIndex] = element.textContent;
+                    saveTasks();
                 }
-                
+
                 const editBtn = document.createElement("button");
                 editBtn.classList.add("edit_btn");
                 editBtn.textContent = "Edit";
 
                 element.removeAttribute("contenteditable");
                 element.classList.remove("edit");
-                
-                element.nextElementSibling.replaceChild(editBtn, element.nextElementSibling.firstElementChild)
+
+                element.nextElementSibling.replaceChild(editBtn, element.nextElementSibling.firstElementChild);
             }
-        })
+        });
     }
-})
+});
